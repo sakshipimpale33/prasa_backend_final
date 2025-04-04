@@ -44,7 +44,7 @@ router.post("/register", async (req, res) => {
     // Check if email already exists
     const checkQuery = "SELECT * FROM users WHERE email = ?";
     db.query(checkQuery, [email], async (err, results) => {
-        if (err) return res.status(500).json({ message: "Database error" });
+        if (err) return res.status(500).json({message:err});
         if (results.length > 0) return res.status(400).json({ message: "Email already registered" });
 
         // Hash the password before saving
