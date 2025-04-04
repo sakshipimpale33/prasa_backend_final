@@ -1,6 +1,6 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const db = require("./config");
+const db = require("./db");
 
 // User Registration
 const register = (req, res) => {

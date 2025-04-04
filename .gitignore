@@ -5,8 +5,7 @@ package-lock.json
 # Ignore environment variables
 .env
 
-# Ignore config files (if they contain sensitive data)
-config.js
+
 
 # Ignore logs and temp files
 logs/
