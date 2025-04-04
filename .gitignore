@@ -1,0 +1,13 @@
+# Ignore node_modules
+node_modules/
+package-lock.json
+
+# Ignore environment variables
+.env
+
+# Ignore config files (if they contain sensitive data)
+config.js
+
+# Ignore logs and temp files
+logs/
+*.log
