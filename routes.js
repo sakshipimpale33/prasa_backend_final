@@ -1,10 +1,38 @@
 const express = require("express");
 const router = express.Router();
-const db = require("./config");
+//const db = require("./config");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const controllers = require("./controllers");
 const { authenticateToken } = require("./middleware");
+const mysql = require("mysql2");
+
+const db = mysql.createConnection({
+  host: process.env.MYSQL_HOST,
+  user: process.env.MYSQL_USER,
+  password: process.env.MYSQL_PASSWORD,
+  database: process.env.MYSQL_DATABASE,
+  port: 12464,
+  ssl: {
+    rejectUnauthorized: false, // Ensures SSL verification
+  },
+});
+
+db.connect((err) => {
+  if (err) {
+    console.error("Database connection failed: " + err.message);
+  } else {
+    console.log("Connected to MySQL Database ✅");
+
+    db.query("SHOW TABLES", (err, tables) => {
+      if (err) {
+        console.error("Error checking tables:", err);
+      } else {
+        console.log("Available tables:", tables.map(t => Object.values(t)[0]));
+      }
+    });
+  }
+});
 
 // Use environment variable for consistency with other files
 const SECRET_KEY = process.env.JWT_SECRET;

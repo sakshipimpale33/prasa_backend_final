@@ -6,7 +6,7 @@ const mysql = require("mysql2");
 //const db = require("./config");
 
 // Load environment variables
-dotenv.config();
+//dotenv.config();
 
 const app = express();
 
