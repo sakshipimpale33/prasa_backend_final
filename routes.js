@@ -1,4 +1,4 @@
-const express = require("express");
+const express = require ("express");
 const router = express.Router();
 //const db = require("./config");
 const bcrypt = require("bcrypt");
@@ -488,7 +488,7 @@ router.post("/submit-qualification", authenticateToken, (req, res) => {
                     });
                 }
                 
-                res.json({ message: "All data saved successfully! Your profile is complete." });
+                res.json({ message: "All data saved successfully!" });
             });
             
         } catch (error) {
