@@ -78,7 +78,136 @@ router.post("/login", (req, res) => {
         res.json({ token, email: user.email, message: "Login successful" });
     });
 });
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 
+// 🔹 Forgot Password - Request Reset Link
+router.post("/forgot-password", (req, res) => {
+    const { email } = req.body;
+    
+    // Check if user exists
+    const query = "SELECT * FROM users WHERE email = ?";
+    
+    db.query(query, [email], async (err, results) => {
+        if (err) {
+            console.error("Database query error:", err);
+            return res.status(500).json({ message: "Server error" });
+        }
+        
+        // Even if user is not found, we return success for security
+        // This prevents email enumeration attacks
+        if (results.length === 0) {
+            return res.status(200).json({ message: "If your email exists in our system, you will receive a password reset link" });
+        }
+        
+        // Generate a reset token
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour from now
+        
+        // Store reset token in database
+        const updateQuery = "UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE email = ?";
+        
+        db.query(updateQuery, [resetToken, resetTokenExpiry, email], async (err) => {
+            if (err) {
+                console.error("Database update error:", err);
+                return res.status(500).json({ message: "Failed to process reset request" });
+            }
+            
+            // Create reset link
+            const resetLink = `https://prasa-website.vercel.app/reset-password.html?token=${resetToken}`;
+            
+            try {
+                // Configure email transporter
+                const transporter = nodemailer.createTransport({
+                    service: 'gmail',
+                    auth: {
+                        user: process.env.EMAIL_USER,
+                        pass: process.env.EMAIL_PASS
+                    }
+                });
+                
+                // Email content
+                const mailOptions = {
+                    from: process.env.EMAIL_USER,
+                    to: email,
+                    subject: 'Password Reset Request',
+                    html: `
+                        <h2>Password Reset Request</h2>
+                        <p>Click the link below to reset your password. This link is valid for 1 hour.</p>
+                        <a href="${resetLink}" style="display: inline-block; background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a>
+                        <p>If you did not request this password reset, please ignore this email.</p>
+                        <p>The link will expire in 1 hour for security purposes.</p>
+                    `
+                };
+                
+                // Send email
+                transporter.sendMail(mailOptions, (error) => {
+                    if (error) {
+                        console.error("Email error:", error);
+                        return res.status(500).json({ message: "Failed to send reset email" });
+                    }
+                    
+                    res.status(200).json({ message: "Password reset link sent to your email" });
+                });
+            } catch (emailError) {
+                console.error("Email setup error:", emailError);
+                return res.status(500).json({ message: "Failed to send reset email. Check server configuration." });
+            }
+        });
+    });
+});
+
+// 🔹 Reset Password with Token
+router.post("/reset-password", (req, res) => {
+    const { token, newPassword } = req.body;
+    
+    if (!token || !newPassword) {
+        return res.status(400).json({ message: "Token and new password are required" });
+    }
+    
+    // Validate password strength
+    if (newPassword.length < 8) {
+        return res.status(400).json({ message: "Password must be at least 8 characters long" });
+    }
+    
+    // Verify token and check expiry
+    // Use TIMESTAMP to ensure proper date comparison in SQL
+    const query = "SELECT * FROM users WHERE reset_token = ? AND TIMESTAMP(reset_token_expiry) > TIMESTAMP(NOW())";
+    
+    db.query(query, [token], async (err, results) => {
+        if (err) {
+            console.error("Token verification error:", err);
+            return res.status(500).json({ message: "Server error" });
+        }
+        
+        if (results.length === 0) {
+            return res.status(400).json({ message: "Invalid or expired reset token" });
+        }
+        
+        const user = results[0];
+        
+        try {
+            // Hash the new password
+            const hashedPassword = await bcrypt.hash(newPassword, 10);
+            
+            // Update password and clear reset token
+            const updateQuery = "UPDATE users SET password = ?, reset_token = NULL, reset_token_expiry = NULL WHERE id = ?";
+            
+            db.query(updateQuery, [hashedPassword, user.id], (err) => {
+                if (err) {
+                    console.error("Password update error:", err);
+                    return res.status(500).json({ message: "Failed to update password" });
+                }
+                
+                res.status(200).json({ message: "Password has been updated successfully" });
+            });
+        } catch (hashError) {
+            console.error("Password hashing error:", hashError);
+            return res.status(500).json({ message: "Failed to process new password" });
+        }
+    });
+});
 // 🔹 Submit User Form (Update or Insert)
 router.post("/submit-form", authenticateToken, (req, res) => { 
     console.log("Form submission - Request body:", req.body);
