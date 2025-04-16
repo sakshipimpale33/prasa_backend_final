@@ -81,30 +81,15 @@ router.post("/login", (req, res) => {
     });
 });
 
-
-
-// Forgot password route
-router.post("/forgot-password", (req, res) => {
-    console.log('Request received with body:', req.body);
-    
-    // Safety check for missing body
-    if (!req.body || typeof req.body !== 'object') {
-        return res.status(400).json({ error: "Invalid request body" });
-    }
-    
-    const email = req.body.email;
-    console.log('Email extracted:', email);
-    // Check if email exists in the database
-    if (!email) {
-        return res.status(400).json({ error: "Email is required" });
-    }
-    
-    console.log('Processing reset request for email:', email);
-    db.query("SELECT * FROM users WHERE email = ?", [email], (err, results) => {
+const forgotPassword = async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      db.query("SELECT * FROM users WHERE email = ?", [email], async (err, users) => {
         if (err) return res.status(500).json({ error: err.message });
         
-        if (results.length === 0) {
-            return res.status(404).json({ error: "User with this email does not exist." });
+        if (users.length === 0) {
+          return res.status(404).json({ error: "User with this email does not exist." });
         }
         
         // Generate a random token
@@ -113,20 +98,27 @@ router.post("/forgot-password", (req, res) => {
         
         // Update user with the reset token
         db.query(
-            "UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE email = ?",
-            [resetToken, resetTokenExpiry, email],
-            (updateErr) => {
-                if (updateErr) return res.status(500).json({ error: updateErr.message });
-                
-                // Send password reset email
-                sendPasswordResetEmail(email, resetToken);
-                
-                res.json({ message: "Password reset link sent to your email" });
+          "UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE email = ?",
+          [resetToken, resetTokenExpiry, email],
+          async (updateErr) => {
+            if (updateErr) return res.status(500).json({ error: updateErr.message });
+            
+            try {
+              // Send password reset email
+              await sendPasswordResetEmail(email, resetToken);
+              res.json({ message: "Password reset link sent to your email" });
+            } catch (emailErr) {
+              console.error("Failed to send email:", emailErr);
+              res.status(500).json({ error: "Failed to send reset email" });
             }
+          }
         );
-    });
-});
-
+      });
+    } catch (error) {
+      console.error("General error in forgot-password handler:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  };
 // Reset password route
 router.post("/reset-password", (req, res) => {
     const { token, newPassword } = req.body;
@@ -162,41 +154,42 @@ router.post("/reset-password", (req, res) => {
 });
 
 // Function to send password reset email
-function sendPasswordResetEmail(email, token) {
-    // Create a nodemailer transporter using Gmail
-    const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-            user: process.env.EMAIL_USER,  // Set up environment variables for email credentials
-            pass: process.env.EMAIL_PASS
-        }
-    });
-    
-    // Reset password URL - this should point to your frontend reset page
-    const resetUrl = `https://prasa-frontend-final.vercel.app/reset-password.html?token=${token}`;
-    
-    // Email options
-    const mailOptions = {
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: 'Password Reset',
-        html: `
-            <h1>Password Reset Request</h1>
-            <p>You requested a password reset. Click the link below to reset your password:</p>
-            <a href="${resetUrl}">Reset Password</a>
-            <p>This link will expire in 1 hour.</p>
-            <p>If you didn't request this, please ignore this email.</p>
-        `
-    };
-    
-    // Send email
-    transporter.sendMail(mailOptions, (error, info) => {
-        if (error) {
-            console.error('Error sending email:', error);
-        } else {
-            console.log('Email sent:', info.response);
-        }
-    });
+async function sendPasswordResetEmail(email, token) {
+    try {
+        // Create a nodemailer transporter using Gmail
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS  // Use App Password for Gmail
+            }
+        });
+        
+        // Reset password URL - pointing to your FRONTEND
+        const resetUrl = `https://prasa-frontend-final.vercel.app/reset-password.html?token=${token}`;
+        
+        // Email options
+        const mailOptions = {
+            from: `"Password Reset" <${process.env.EMAIL_USER}>`,
+            to: email,
+            subject: 'Password Reset',
+            html: `
+                <h1>Password Reset Request</h1>
+                <p>You requested a password reset. Click the link below to reset your password:</p>
+                <a href="${resetUrl}" style="background-color: #4CAF50; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px;">Reset Password</a>
+                <p>This link will expire in 1 hour.</p>
+                <p>If you didn't request this, please ignore this email.</p>
+            `
+        };
+        
+        // Send email and wait for result
+        const info = await transporter.sendMail(mailOptions);
+        console.log('Email sent:', info.response);
+        return true;
+    } catch (error) {
+        console.error('Error sending email:', error);
+        return false;
+    }
 }
 
 // 🔹 Submit User Form (Update or Insert)
