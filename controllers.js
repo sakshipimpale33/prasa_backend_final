@@ -41,14 +41,15 @@ const login = (req, res) => {
 
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
-const forgotPassword = (req, res) => {
-  const { email } = req.body;
-  
-  db.query("SELECT * FROM users WHERE email = ?", [email], (err, users) => {
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    db.query("SELECT * FROM users WHERE email = ?", [email], async (err, users) => {
       if (err) return res.status(500).json({ error: err.message });
       
       if (users.length === 0) {
-          return res.status(404).json({ error: "User with this email does not exist." });
+        return res.status(404).json({ error: "User with this email does not exist." });
       }
       
       // Generate a random token
@@ -57,18 +58,26 @@ const forgotPassword = (req, res) => {
       
       // Update user with the reset token
       db.query(
-          "UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE email = ?",
-          [resetToken, resetTokenExpiry, email],
-          (updateErr) => {
-              if (updateErr) return res.status(500).json({ error: updateErr.message });
-              
-              // Send password reset email
-              sendPasswordResetEmail(email, resetToken);
-              
-              res.json({ message: "Password reset link sent to your email" });
+        "UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE email = ?",
+        [resetToken, resetTokenExpiry, email],
+        async (updateErr) => {
+          if (updateErr) return res.status(500).json({ error: updateErr.message });
+          
+          try {
+            // Send password reset email
+            await sendPasswordResetEmail(email, resetToken);
+            res.json({ message: "Password reset link sent to your email" });
+          } catch (emailErr) {
+            console.error("Failed to send email:", emailErr);
+            res.status(500).json({ error: "Failed to send reset email" });
           }
+        }
       );
-  });
+    });
+  } catch (error) {
+    console.error("General error in forgot-password handler:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 };
 const resetPassword = async (req, res) => {
   const { token, newPassword } = req.body;
