@@ -3,18 +3,17 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const apiRoutes = require("./routes");
 const mysql = require("mysql2");
-const path = require('path');
 
 // Load environment variables
 dotenv.config();
-
 const app = express();
 
-// Middleware
+// Update CORS to allow your frontend domain
 app.use(cors({
-  origin: 'http://127.0.0.1:5501', // You might need to update this for your hosted environment
+  origin: ['http://127.0.0.1:5501', 'https://your-frontend-domain.vercel.app'], // Add your frontend Vercel URL here
   credentials: true
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -26,7 +25,7 @@ const db = mysql.createConnection({
   database: process.env.MYSQL_DATABASE,
   port: 12464,
   ssl: {
-    rejectUnauthorized: false, // Ensures SSL verification
+    rejectUnauthorized: false,
   },
 });
 
@@ -35,7 +34,6 @@ db.connect((err) => {
     console.error("Database connection failed: " + err.message);
   } else {
     console.log("Connected to MySQL Database ✅");
-
     db.query("SHOW TABLES", (err, tables) => {
       if (err) {
         console.error("Error checking tables:", err);
@@ -58,15 +56,11 @@ db.query("SELECT 1", (err, result) => {
 // Mount API routes
 app.use("/api", apiRoutes);
 
-// Serve static files
-app.use(express.static(path.join(__dirname, '..', 'frontend')));
-
 // API route for user profile
 app.get("/api/profile/:email", (req, res) => {
   const email = req.params.email;
   
   const query = "SELECT * FROM user_data WHERE email = ?";
-
   db.query(query, [email], (err, result) => {
       if (err) {
           console.error("Database error:", err);
@@ -77,11 +71,6 @@ app.get("/api/profile/:email", (req, res) => {
       }
       res.json(result[0]);
   });
-});
-
-// Catch-all route for frontend routing
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'frontend', 'index.html'));
 });
 
 // Error handling middleware

@@ -6,6 +6,7 @@ const jwt = require("jsonwebtoken");
 const controllers = require("./controllers");
 const { authenticateToken } = require("./middleware");
 const mysql = require("mysql2");
+const crypto = require('crypto');
 
 const db = mysql.createConnection({
   host: process.env.MYSQL_HOST,
