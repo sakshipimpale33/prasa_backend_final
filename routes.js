@@ -79,6 +79,121 @@ router.post("/login", (req, res) => {
     });
 });
 
+router.post("/forgot-password", (req, res) => {
+    console.log('Request received with body:', req.body);
+    
+    // Safety check for missing body
+    if (!req.body || typeof req.body !== 'object') {
+        return res.status(400).json({ error: "Invalid request body" });
+    }
+    
+    const email = req.body.email;
+    console.log('Email extracted:', email);
+    // Check if email exists in the database
+    if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+    }
+    
+    console.log('Processing reset request for email:', email);
+    db.query("SELECT * FROM users WHERE email = ?", [email], (err, results) => {
+        if (err) return res.status(500).json({ error: err.message });
+        
+        if (results.length === 0) {
+            return res.status(404).json({ error: "User with this email does not exist." });
+        }
+        
+        // Generate a random token
+        const resetToken = crypto.randomBytes(20).toString('hex');
+        const resetTokenExpiry = new Date(Date.now() + 3600000); // Token valid for 1 hour
+        
+        // Update user with the reset token
+        db.query(
+            "UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE email = ?",
+            [resetToken, resetTokenExpiry, email],
+            (updateErr) => {
+                if (updateErr) return res.status(500).json({ error: updateErr.message });
+                
+                // Send password reset email
+                sendPasswordResetEmail(email, resetToken);
+                
+                res.json({ message: "Password reset link sent to your email" });
+            }
+        );
+    });
+});
+
+// Reset password route
+router.post("/reset-password", (req, res) => {
+    const { token, newPassword } = req.body;
+    
+    // Find user with the provided token that hasn't expired
+    db.query(
+        "SELECT * FROM users WHERE reset_token = ? AND reset_token_expiry > ?",
+        [token, new Date()],
+        async (err, results) => {
+            if (err) return res.status(500).json({ error: err.message });
+            
+            if (results.length === 0) {
+                return res.status(400).json({ error: "Invalid or expired reset token" });
+            }
+            
+            const user = results[0];
+            
+            // Hash the new password
+            const hashedPassword = await bcrypt.hash(newPassword, 10);
+            
+            // Update user's password and remove reset token
+            db.query(
+                "UPDATE users SET password = ?, reset_token = NULL, reset_token_expiry = NULL WHERE id = ?",
+                [hashedPassword, user.id],
+                (updateErr) => {
+                    if (updateErr) return res.status(500).json({ error: updateErr.message });
+                    
+                    res.json({ message: "Password has been reset successfully" });
+                }
+            );
+        }
+    );
+});
+
+// Function to send password reset email
+function sendPasswordResetEmail(email, token) {
+    // Create a nodemailer transporter using Gmail
+    const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: process.env.EMAIL_USER,  // Set up environment variables for email credentials
+            pass: process.env.EMAIL_PASS
+        }
+    });
+    
+    // Reset password URL - this should point to your frontend reset page
+    const resetUrl = `https://prasa-backend-final.vercel.app/reset-password.html?token=${token}`;
+    
+    // Email options
+    const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: 'Password Reset',
+        html: `
+            <h1>Password Reset Request</h1>
+            <p>You requested a password reset. Click the link below to reset your password:</p>
+            <a href="${resetUrl}">Reset Password</a>
+            <p>This link will expire in 1 hour.</p>
+            <p>If you didn't request this, please ignore this email.</p>
+        `
+    };
+    
+    // Send email
+    transporter.sendMail(mailOptions, (error, info) => {
+        if (error) {
+            console.error('Error sending email:', error);
+        } else {
+            console.log('Email sent:', info.response);
+        }
+    });
+}
+
 // 🔹 Submit User Form (Update or Insert)
 router.post("/submit-form", authenticateToken, (req, res) => { 
     console.log("Form submission - Request body:", req.body);

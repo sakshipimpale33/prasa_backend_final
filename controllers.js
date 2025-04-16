@@ -39,6 +39,104 @@ const login = (req, res) => {
   });
 };
 
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
+const forgotPassword = (req, res) => {
+  const { email } = req.body;
+  
+  db.query("SELECT * FROM users WHERE email = ?", [email], (err, users) => {
+      if (err) return res.status(500).json({ error: err.message });
+      
+      if (users.length === 0) {
+          return res.status(404).json({ error: "User with this email does not exist." });
+      }
+      
+      // Generate a random token
+      const resetToken = crypto.randomBytes(20).toString('hex');
+      const resetTokenExpiry = new Date(Date.now() + 3600000); // Token valid for 1 hour
+      
+      // Update user with the reset token
+      db.query(
+          "UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE email = ?",
+          [resetToken, resetTokenExpiry, email],
+          (updateErr) => {
+              if (updateErr) return res.status(500).json({ error: updateErr.message });
+              
+              // Send password reset email
+              sendPasswordResetEmail(email, resetToken);
+              
+              res.json({ message: "Password reset link sent to your email" });
+          }
+      );
+  });
+};
+const resetPassword = async (req, res) => {
+  const { token, newPassword } = req.body;
+  
+  // Find user with the provided token that hasn't expired
+  db.query(
+      "SELECT * FROM users WHERE reset_token = ? AND reset_token_expiry > ?",
+      [token, new Date()],
+      async (err, users) => {
+          if (err) return res.status(500).json({ error: err.message });
+          
+          if (users.length === 0) {
+              return res.status(400).json({ error: "Invalid or expired reset token" });
+          }
+          
+          const user = users[0];
+          
+          // Hash the new password
+          const hashedPassword = await bcrypt.hash(newPassword, 10);
+          
+          // Update user's password and remove reset token
+          db.query(
+              "UPDATE users SET password = ?, reset_token = NULL, reset_token_expiry = NULL WHERE id = ?",
+              [hashedPassword, user.id],
+              (updateErr) => {
+                  if (updateErr) return res.status(500).json({ error: updateErr.message });
+                  
+                  res.json({ message: "Password has been reset successfully" });
+              }
+          );
+      }
+  );
+};
+const sendPasswordResetEmail = (email, token) => {
+  // Create a nodemailer transporter using Gmail
+  const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+          user: process.env.EMAIL_USER,  // Set up environment variables for email credentials
+          pass: process.env.EMAIL_PASS
+      }
+  });
+  const resetUrl = `https://prasa-backend-final.vercel.app/reset-password.html?token=${token}`;
+    
+    // Email options
+    const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: 'Password Reset',
+        html: `
+            <h1>Password Reset Request</h1>
+            <p>You requested a password reset. Click the link below to reset your password:</p>
+            <a href="${resetUrl}">Reset Password</a>
+            <p>This link will expire in 1 hour.</p>
+            <p>If you didn't request this, please ignore this email.</p>
+        `
+    };
+    
+    // Send email
+    transporter.sendMail(mailOptions, (error, info) => {
+        if (error) {
+            console.error('Error sending email:', error);
+        } else {
+            console.log('Email sent:', info.response);
+        }
+    });
+};
+
 // Updated Form Submission to include all personal information fields
 const submitForm = (req, res) => {
   const userId = req.user.id;
