@@ -102,42 +102,42 @@ const resetPassword = async (req, res) => {
       }
   );
 };
-const sendPasswordResetEmail = async (email, token) => {
-  try {
-    // Create a nodemailer transporter using Gmail
-    const transporter = nodemailer.createTransport({
+
+const sendPasswordResetEmail = (email, token) => {
+  // Create a nodemailer transporter using Gmail
+  const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: process.env.EMAIL_USER,  // Set up environment variables for email credentials
-        pass: process.env.EMAIL_PASS
+          user: process.env.EMAIL_USER,  // Set up environment variables for email credentials
+          pass: process.env.EMAIL_PASS
       }
-    });
-    
-    // Use the frontend URL, not backend
-    const resetUrl = `https://prasa-frontend-final.vercel.app/reset-password.html?token=${token}`;
-    
-    // Email options
-    const mailOptions = {
-      from: `"Password Reset" <${process.env.EMAIL_USER}>`,
+  });
+  
+  // Reset password URL - this should point to your frontend reset page
+  const resetUrl = `https://prasa-frontend-final.vercel.app/reset-password.html?token=${token}`;
+  
+  // Email options
+  const mailOptions = {
+      from: process.env.EMAIL_USER,
       to: email,
       subject: 'Password Reset',
       html: `
-        <h1>Password Reset Request</h1>
-        <p>You requested a password reset. Click the link below to reset your password:</p>
-        <a href="${resetUrl}" style="background-color: #4CAF50; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px;">Reset Password</a>
-        <p>This link will expire in 1 hour.</p>
-        <p>If you didn't request this, please ignore this email.</p>
+          <h1>Password Reset Request</h1>
+          <p>You requested a password reset. Click the link below to reset your password:</p>
+          <a href="${resetUrl}">Reset Password</a>
+          <p>This link will expire in 1 hour.</p>
+          <p>If you didn't request this, please ignore this email.</p>
       `
-    };
-    
-    // Send email and wait for result
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Email sent:', info.response);
-    return true;
-  } catch (error) {
-    console.error('Error sending email:', error);
-    throw error; // Re-throw to handle in the controller
-  }
+  };
+  
+  // Send email
+  transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+          console.error('Error sending email:', error);
+      } else {
+          console.log('Email sent:', info.response);
+      }
+  });
 };
 
 // Updated Form Submission to include all personal information fields
