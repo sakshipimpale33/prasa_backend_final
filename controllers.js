@@ -42,35 +42,40 @@ const login = (req, res) => {
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 // Function to handle forgot password request
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
+
+// Function to handle forgot password request
 const forgotPassword = (req, res) => {
-  const { email } = req.body;
-  
-  db.query("SELECT * FROM users WHERE email = ?", [email], (err, users) => {
-      if (err) return res.status(500).json({ error: err.message });
-      
-      if (users.length === 0) {
-          return res.status(404).json({ error: "User with this email does not exist." });
-      }
-      
-      // Generate a random token
-      const resetToken = crypto.randomBytes(20).toString('hex');
-      const resetTokenExpiry = new Date(Date.now() + 3600000); // Token valid for 1 hour
-      
-      // Update user with the reset token
-      db.query(
-          "UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE email = ?",
-          [resetToken, resetTokenExpiry, email],
-          (updateErr) => {
-              if (updateErr) return res.status(500).json({ error: updateErr.message });
-              
-              // Send password reset email
-              sendPasswordResetEmail(email, resetToken);
-              
-              res.json({ message: "Password reset link sent to your email" });
-          }
-      );
-  });
+    const { email } = req.body;
+    
+    db.query("SELECT * FROM users WHERE email = ?", [email], (err, users) => {
+        if (err) return res.status(500).json({ error: err.message });
+        
+        if (users.length === 0) {
+            return res.status(404).json({ error: "User with this email does not exist." });
+        }
+        
+        // Generate a random token
+        const resetToken = crypto.randomBytes(20).toString('hex');
+        const resetTokenExpiry = new Date(Date.now() + 3600000); // Token valid for 1 hour
+        
+        // Update user with the reset token
+        db.query(
+            "UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE email = ?",
+            [resetToken, resetTokenExpiry, email],
+            (updateErr) => {
+                if (updateErr) return res.status(500).json({ error: updateErr.message });
+                
+                // Send password reset email
+                sendPasswordResetEmail(email, resetToken);
+                
+                res.json({ message: "Password reset link sent to your email" });
+            }
+        );
+    });
 };
+
 const resetPassword = async (req, res) => {
   const { token, newPassword } = req.body;
   
@@ -103,42 +108,42 @@ const resetPassword = async (req, res) => {
       }
   );
 };
-const sendPasswordResetEmail = async (email, token) => {
-  try {
-    // Create a nodemailer transporter using Gmail
-    const transporter = nodemailer.createTransport({
+
+const sendPasswordResetEmail = (email, token) => {
+  // Create a nodemailer transporter using Gmail
+  const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: process.env.EMAIL_USER,  // Set up environment variables for email credentials
-        pass: process.env.EMAIL_PASS
+          user: process.env.EMAIL_USER,  // Set up environment variables for email credentials
+          pass: process.env.EMAIL_PASS
       }
-    });
-    
-    // Use the frontend URL, not backend
-    const resetUrl = `https://prasa-frontend-final.vercel.app/reset-password.html?token=${token}`;
-    
-    // Email options
-    const mailOptions = {
-      from: `"Password Reset" <${process.env.EMAIL_USER}>`,
+  });
+  
+  // Reset password URL - this should point to your frontend reset page
+  const resetUrl = `https://prasa-backend-final.vercel.app/api/reset-password.html?token=${token}`;
+  
+  // Email options
+  const mailOptions = {
+      from: process.env.EMAIL_USER,
       to: email,
       subject: 'Password Reset',
       html: `
-        <h1>Password Reset Request</h1>
-        <p>You requested a password reset. Click the link below to reset your password:</p>
-        <a href="${resetUrl}" style="background-color: #4CAF50; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px;">Reset Password</a>
-        <p>This link will expire in 1 hour.</p>
-        <p>If you didn't request this, please ignore this email.</p>
+          <h1>Password Reset Request</h1>
+          <p>You requested a password reset. Click the link below to reset your password:</p>
+          <a href="${resetUrl}">Reset Password</a>
+          <p>This link will expire in 1 hour.</p>
+          <p>If you didn't request this, please ignore this email.</p>
       `
-    };
-    
-    // Send email and wait for result
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Email sent:', info.response);
-    return true;
-  } catch (error) {
-    console.error('Error sending email:', error);
-    throw error; // Re-throw to handle in the controller
-  }
+  };
+  
+  // Send email
+  transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+          console.error('Error sending email:', error);
+      } else {
+          console.log('Email sent:', info.response);
+      }
+  });
 };
 
 // Updated Form Submission to include all personal information fields
