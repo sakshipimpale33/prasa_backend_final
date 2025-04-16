@@ -174,7 +174,7 @@ function sendPasswordResetEmail(email, token) {
     });
     
     // Reset password URL - this should point to your frontend reset page
-    const resetUrl = `https://prasa-backend-final.vercel.app/api/reset-password.html?token=${token}`;
+    const resetUrl = `https://prasa-frontend-final.vercel.app/reset-password.html?token=${token}`;
     
     // Email options
     const mailOptions = {

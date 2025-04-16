@@ -110,40 +110,39 @@ const resetPassword = async (req, res) => {
 };
 
 const sendPasswordResetEmail = (email, token) => {
-  // Create a nodemailer transporter using Gmail
-  const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-          user: process.env.EMAIL_USER,  // Set up environment variables for email credentials
-          pass: process.env.EMAIL_PASS
-      }
-  });
-  
-  // Reset password URL - this should point to your frontend reset page
-  const resetUrl = `https://prasa-backend-final.vercel.app/api/reset-password.html?token=${token}`;
-  
-  // Email options
-  const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: 'Password Reset',
-      html: `
-          <h1>Password Reset Request</h1>
-          <p>You requested a password reset. Click the link below to reset your password:</p>
-          <a href="${resetUrl}">Reset Password</a>
-          <p>This link will expire in 1 hour.</p>
-          <p>If you didn't request this, please ignore this email.</p>
-      `
-  };
-  
-  // Send email
-  transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-          console.error('Error sending email:', error);
-      } else {
-          console.log('Email sent:', info.response);
-      }
-  });
+    // Create a nodemailer transporter using Gmail
+    const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: process.env.EMAIL_USER,  // Set up environment variables for email credentials
+            pass: process.env.EMAIL_PASS
+        }
+    });
+    
+    const resetUrl = `https://prasa-frontend-final.vercel.app/reset-password.html?token=${token}`;
+    
+    // Email options
+    const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: 'Password Reset',
+        html: `
+            <h1>Password Reset Request</h1>
+            <p>You requested a password reset. Click the link below to reset your password:</p>
+            <a href="${resetUrl}">Reset Password</a>
+            <p>This link will expire in 1 hour.</p>
+            <p>If you didn't request this, please ignore this email.</p>
+        `
+    };
+    
+    // Send email
+    transporter.sendMail(mailOptions, (error, info) => {
+        if (error) {
+            console.error('Error sending email:', error);
+        } else {
+            console.log('Email sent:', info.response);
+        }
+    });
 };
 
 // Updated Form Submission to include all personal information fields
