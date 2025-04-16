@@ -8,6 +8,7 @@ const { authenticateToken } = require("./middleware");
 const mysql = require("mysql2");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
+
 const db = mysql.createConnection({
   host: process.env.MYSQL_HOST,
   user: process.env.MYSQL_USER,
