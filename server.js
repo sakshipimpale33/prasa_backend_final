@@ -10,9 +10,10 @@ const app = express();
 
 // Update CORS to allow your frontend domain
 app.use(cors({
-  origin: ['http://127.0.0.1:5501', 'https://your-frontend-domain.vercel.app'], // Add your frontend Vercel URL here
+  origin: ['http://127.0.0.1:5501', 'https://prasa-frontend-final.vercel.app'],
   credentials: true
 }));
+
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
