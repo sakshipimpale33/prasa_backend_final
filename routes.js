@@ -81,7 +81,6 @@ router.post("/login", (req, res) => {
     });
 });
 
-const nodemailer = require('nodemailer');
 
 
 // Forgot password route
