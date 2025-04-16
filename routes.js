@@ -81,44 +81,64 @@ router.post("/login", (req, res) => {
     });
 });
 
-const forgotPassword = async (req, res) => {
+router.post("/forgot-password", (req, res) => {
     try {
-      const { email } = req.body;
-      
-      db.query("SELECT * FROM users WHERE email = ?", [email], async (err, users) => {
-        if (err) return res.status(500).json({ error: err.message });
+        console.log('Request received with body:', req.body);
         
-        if (users.length === 0) {
-          return res.status(404).json({ error: "User with this email does not exist." });
+        // Safety check for missing body
+        if (!req.body || typeof req.body !== 'object') {
+            return res.status(400).json({ error: "Invalid request body" });
         }
         
-        // Generate a random token
-        const resetToken = crypto.randomBytes(20).toString('hex');
-        const resetTokenExpiry = new Date(Date.now() + 3600000); // Token valid for 1 hour
+        const email = req.body.email;
+        console.log('Email extracted:', email);
         
-        // Update user with the reset token
-        db.query(
-          "UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE email = ?",
-          [resetToken, resetTokenExpiry, email],
-          async (updateErr) => {
-            if (updateErr) return res.status(500).json({ error: updateErr.message });
-            
-            try {
-              // Send password reset email
-              await sendPasswordResetEmail(email, resetToken);
-              res.json({ message: "Password reset link sent to your email" });
-            } catch (emailErr) {
-              console.error("Failed to send email:", emailErr);
-              res.status(500).json({ error: "Failed to send reset email" });
+        if (!email) {
+            return res.status(400).json({ error: "Email is required" });
+        }
+        
+        console.log('Processing reset request for email:', email);
+        
+        db.query("SELECT * FROM users WHERE email = ?", [email], (err, results) => {
+            if (err) {
+                console.error("DB error:", err);
+                return res.status(500).json({ error: err.message });
             }
-          }
-        );
-      });
+            
+            if (results.length === 0) {
+                return res.status(404).json({ error: "User with this email does not exist." });
+            }
+            
+            // Generate a random token
+            const resetToken = crypto.randomBytes(20).toString('hex');
+            const resetTokenExpiry = new Date(Date.now() + 3600000); // Token valid for 1 hour
+            
+            // Update user with the reset token
+            db.query(
+                "UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE email = ?",
+                [resetToken, resetTokenExpiry, email],
+                (updateErr) => {
+                    if (updateErr) {
+                        console.error("Update error:", updateErr);
+                        return res.status(500).json({ error: updateErr.message });
+                    }
+                    
+                    try {
+                        // Send password reset email
+                        sendPasswordResetEmail(email, resetToken);
+                        res.json({ message: "Password reset link sent to your email" });
+                    } catch (emailErr) {
+                        console.error("Email sending error:", emailErr);
+                        res.status(500).json({ error: "Failed to send reset email" });
+                    }
+                }
+            );
+        });
     } catch (error) {
-      console.error("General error in forgot-password handler:", error);
-      res.status(500).json({ error: "Internal server error" });
+        console.error("General error in forgot-password route:", error);
+        res.status(500).json({ error: "Internal server error" });
     }
-  };
+});
 // Reset password route
 router.post("/reset-password", (req, res) => {
     const { token, newPassword } = req.body;
