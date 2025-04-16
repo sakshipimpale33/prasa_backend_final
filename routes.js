@@ -186,7 +186,7 @@ async function sendPasswordResetEmail(email, token) {
         });
         
         // Reset password URL - pointing to your FRONTEND
-        const resetUrl = `https://prasa-frontend-final.vercel.app/api/reset-password.html?token=${token}`;
+        const resetUrl = `https://prasa-frontend-final.vercel.app/reset-password.html?token=${token}`;
         
         // Email options
         const mailOptions = {

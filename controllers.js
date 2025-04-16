@@ -114,7 +114,7 @@ const sendPasswordResetEmail = async (email, token) => {
     });
     
     // Use the frontend URL, not backend
-    const resetUrl = `https://prasa-frontend-final.vercel.app/api/reset-password.html?token=${token}`;
+    const resetUrl = `https://prasa-frontend-final.vercel.app/reset-password.html?token=${token}`;
     
     // Email options
     const mailOptions = {
@@ -740,6 +740,9 @@ module.exports = {
   submitQualification, 
   submitFamilyDetails, 
   getFamilyDetails ,
-  submitMedicalInfo
+  submitMedicalInfo,
+  forgotPassword,
+    resetPassword,
+    sendPasswordResetEmail
 };
 
